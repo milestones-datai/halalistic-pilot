@@ -38,18 +38,27 @@ from app.db.session import get_db
 from app.models.deal import Deal, DealAudience, DealStatus, DealType
 from app.models.enums import (
     CertificateStatus,
+    HalalStatus,
     RestaurantTier,
     UserRole,
 )
 from app.models.halal_certificate import HalalCertificate
 from app.models.billing import RestaurantBillingSubscription
+from app.models.certifying_body import CertifyingBody
 from app.models.restaurant import Photo, Restaurant
 from app.models.user import User
 from app.services import billing as billing_service
-from app.services import certificates as cert_service
 from app.services import deals as deal_service
-from app.services import photos as photo_service
 from app.services import restaurant_service
+from app.services.certificates import (
+    CertificateService,
+    CertifyingBodyNotFound,
+    CertBodyRequired,
+    InvalidDateRange,
+    CertificateError,
+)
+from app.services.photos import PhotoService, PhotoCapExceeded
+from app.services.deals import CreateDealInput
 from app.web.deps import get_optional_user, require_owner_role
 from app.web.templates_env import render
 
@@ -200,13 +209,26 @@ async def owner_photos_post(
         raise HTTPException(status_code=404, detail="no restaurant")
     data = await file.read()
     try:
-        await photo_service.upload_photo(
-            db, restaurant=r, content=data,
+        await restaurant_service.add_photo(
+            db,
+            restaurant=r,
+            actor=user,
+            is_admin=(user.role == UserRole.PLATFORM_ADMIN),
+            data=data,
             content_type=file.content_type or "image/jpeg",
+            photo_service=PhotoService(),
             caption=caption.strip() or None,
         )
-    except HTTPException as exc:
-        _set_flash(request, "error", str(exc.detail))
+    except PhotoCapExceeded as exc:
+        _set_flash(
+            request, "error",
+            f"Photo cap reached for tier {exc.tier.value} "
+            f"(already have {exc.current_count} of {exc.cap}). "
+            f"Upgrade your tier to add more.",
+        )
+        return RedirectResponse(url="/owner/photos", status_code=303)
+    except ValueError as exc:
+        _set_flash(request, "error", f"Invalid image: {exc}")
         return RedirectResponse(url="/owner/photos", status_code=303)
     _set_flash(request, "success", "Photo uploaded.")
     return RedirectResponse(url="/owner/photos", status_code=303)
@@ -253,14 +275,43 @@ async def owner_certs_post(
         _set_flash(request, "error", f"Invalid date: {exc}")
         return RedirectResponse(url="/owner/certificates", status_code=303)
     try:
-        await cert_service.upload_cert(
-            db, restaurant=r, uploaded_by=user, content=data,
-            content_type=document.content_type or "application/pdf",
-            certifying_body_id=certifying_body_id, issue_date=issue_d, expiry_date=exp_d,
-        )
-    except HTTPException as exc:
-        _set_flash(request, "error", str(exc.detail))
+        CertificateService.validate_dates(issue_d, exp_d)
+    except InvalidDateRange as exc:
+        _set_flash(request, "error", str(exc))
         return RedirectResponse(url="/owner/certificates", status_code=303)
+    # Resolve certifying body
+    body_obj = await db.get(CertifyingBody, certifying_body_id)
+    if body_obj is None or not body_obj.is_active:
+        _set_flash(request, "error", "Unknown or inactive certifying body.")
+        return RedirectResponse(url="/owner/certificates", status_code=303)
+    # Pre-create cert row (PENDING) so we have a UUID for the blob name
+    cert = HalalCertificate(
+        id=uuid.uuid4(),
+        restaurant_id=r.id,
+        uploaded_by=user.id,
+        certifying_body_id=body_obj.id,
+        custom_certifying_body=None,
+        issue_date=issue_d,
+        expiry_date=exp_d,
+        status=CertificateStatus.PENDING,
+    )
+    db.add(cert)
+    content_type = document.content_type or "application/pdf"
+    try:
+        blob_name, blob_url = await CertificateService().upload(
+            cert_id=cert.id, restaurant_id=r.id,
+            data=data, content_type=content_type,
+        )
+    except CertificateError as exc:
+        _set_flash(request, "error", f"Upload failed: {exc}")
+        return RedirectResponse(url="/owner/certificates", status_code=303)
+    cert.blob_name = blob_name
+    cert.blob_url = blob_url
+    cert.content_type = content_type
+    cert.size_bytes = len(data)
+    # Restaurant moves to PENDING awaiting admin review
+    r.halal_status = HalalStatus.PENDING
+    await db.commit()
     _set_flash(request, "success", "Certificate submitted. Admin will review within 1-2 business days.")
     return RedirectResponse(url="/owner/certificates", status_code=303)
 
@@ -312,10 +363,16 @@ async def owner_deals_post(
         return RedirectResponse(url="/owner/deals", status_code=303)
     try:
         deal = await deal_service.create_draft(
-            db, restaurant=r, owner=user, title=title.strip(),
-            description=description.strip() or None,
-            deal_type=dt, target_audience=aud,
-            discount_value=dval, start_date=sd, end_date=ed,
+            db, restaurant=r, creator=user,
+            inp=CreateDealInput(
+                title=title.strip(),
+                description=description.strip() or None,
+                deal_type=dt,
+                discount_value=dval,
+                start_date=sd,
+                end_date=ed,
+                target_audience=aud,
+            ),
         )
     except HTTPException as exc:
         _set_flash(request, "error", str(exc.detail))
