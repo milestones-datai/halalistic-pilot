@@ -1,0 +1,49 @@
+# Halalistic — Python/FastAPI monolith
+# (See docs/ for the BRD, security review, and QA checklist.)
+
+# ---- Python ----
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+build/
+dist/
+
+# ---- Secrets (NEVER commit; placeholders live in .env.example) ----
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+service-account*.json
+vapid_keys.json
+vapid_keys.json.tmp
+
+# ---- Local artifacts ----
+_preview/
+dbg_*.py
+*.log
+.DS_Store
+Thumbs.db
+
+# ---- Build artifacts (Stage 9-11 deliverables) ----
+halalistic-stage*.zip
+tests-output.txt
+
+# ---- IDE ----
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ---- OS ----
+ehthumbs.db
+desktop.ini

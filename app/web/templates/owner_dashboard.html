@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Owner portal — Halalistic{% endblock %}
+{% block content %}
+<div class="bg-halalistic-saffron-soft border border-halalistic-saffron rounded-lg p-3 mb-4 text-sm">
+  <strong>Owner portal.</strong>
+  This page is for restaurant owners only.
+  <a href="/" class="text-halalistic-green underline">Switch to consumer view →</a>
+</div>
+
+{% if notice %}
+  <div class="card text-center text-gray-600">{{ notice }}</div>
+{% elif not restaurant %}
+  <div class="card text-center text-gray-600">No restaurant on file. Contact support.</div>
+{% else %}
+  <h1 class="text-2xl font-bold text-halalistic-green mb-1">{{ restaurant.name }}</h1>
+  <p class="text-sm text-gray-600 mb-4">{{ restaurant.address_line }}, {{ restaurant.city }}</p>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+    <a class="btn btn-ghost" href="/owner/restaurant/edit">Edit profile</a>
+    <a class="btn btn-ghost" href="/owner/photos">Photos</a>
+    <a class="btn btn-ghost" href="/owner/certificates">Halal certificate</a>
+    <a class="btn btn-ghost" href="/owner/deals">Deals</a>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <section class="card">
+      <h2 class="text-lg font-bold text-halalistic-green mb-2">Status</h2>
+      <p>
+        <strong>Halal:</strong>
+        <span class="pill pill-{{ 'green' if restaurant.halal_status.value == 'verified' else 'saffron' if restaurant.halal_status.value == 'pending' else 'gray' }}">
+          {{ restaurant.halal_status.value }}
+        </span>
+      </p>
+      <p class="mt-1">
+        <strong>Tier:</strong>
+        <span class="pill pill-saffron">{{ restaurant.tier.value }}</span>
+        {% if subscription %}<span class="text-xs text-gray-500 ml-2">({{ subscription.status }})</span>{% endif %}
+      </p>
+      {% if restaurant.halal_status.value != 'verified' %}
+        <a href="/owner/certificates" class="text-halalistic-green underline text-sm">Upload halal cert</a>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2 class="text-lg font-bold text-halalistic-green mb-2">Subscription</h2>
+      <p class="text-sm text-gray-700">
+        Paid tiers unlock more photos, search boost, and push notifications.
+      </p>
+      <div class="mt-2 flex flex-wrap gap-2">
+        <form method="post" action="/owner/tier/subscribe">
+          <input type="hidden" name="target_tier" value="photo_plus">
+          <button class="btn btn-saffron" type="submit">Upgrade to photo_plus</button>
+        </form>
+        <form method="post" action="/owner/tier/subscribe">
+          <input type="hidden" name="target_tier" value="featured">
+          <button class="btn btn-saffron" type="submit">Upgrade to featured</button>
+        </form>
+        <form method="post" action="/owner/tier/subscribe">
+          <input type="hidden" name="target_tier" value="premium">
+          <button class="btn btn-saffron" type="submit">Upgrade to premium</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 class="text-lg font-bold text-halalistic-green mb-2">Recent photos</h2>
+      {% if photos %}
+        <div class="flex flex-wrap gap-2">
+          {% for p in photos %}
+            <img src="{{ p.blob_url }}" alt="" class="w-20 h-20 object-cover rounded">
+          {% endfor %}
+        </div>
+        <a href="/owner/photos" class="text-halalistic-green underline text-sm mt-2 inline-block">Manage photos →</a>
+      {% else %}
+        <p class="text-sm text-gray-600">No photos yet.</p>
+        <a href="/owner/photos" class="btn btn-ghost text-sm">Upload photos</a>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2 class="text-lg font-bold text-halalistic-green mb-2">Recent deals</h2>
+      {% if deals %}
+        <ul class="text-sm space-y-1">
+          {% for d in deals[:5] %}
+            <li class="flex justify-between">
+              <span>{{ d.title }}</span>
+              <span class="pill pill-{{ 'green' if d.status == 'approved' else 'saffron' if d.status == 'pending_review' else 'red' if d.status == 'rejected' else 'gray' }}">{{ d.status }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+        <a href="/owner/deals" class="text-halalistic-green underline text-sm mt-2 inline-block">All deals →</a>
+      {% else %}
+        <p class="text-sm text-gray-600">No deals yet.</p>
+        <a href="/owner/deals" class="btn btn-ghost text-sm">Submit a deal</a>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2 class="text-lg font-bold text-halalistic-green mb-2">Halal certs</h2>
+      {% if certs %}
+        <ul class="text-sm space-y-1">
+          {% for c in certs[:5] %}
+            <li class="flex justify-between">
+              <span>{{ c.certifying_body.name if c.certifying_body else c.custom_certifying_body }}</span>
+              <span class="pill pill-{{ 'green' if c.status == 'approved' else 'saffron' if c.status == 'pending' else 'red' if c.status == 'rejected' else 'gray' }}">{{ c.status }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-sm text-gray-600">No certificates on file.</p>
+      {% endif %}
+      <a href="/owner/certificates" class="text-halalistic-green underline text-sm mt-2 inline-block">Manage certs →</a>
+    </section>
+  </div>
+{% endif %}
+{% endblock %}

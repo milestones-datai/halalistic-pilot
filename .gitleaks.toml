@@ -1,0 +1,38 @@
+# gitleaks config — custom allowlist to avoid false positives on
+# patterns that look secret-like but are not.
+#
+# Run locally:
+#   gitleaks detect --source . --config .gitleaks.toml --no-banner
+
+title = "Halalistic secret scan"
+
+# Only fail on real-leak rules; default + our custom.
+[extend]
+useDefault = true
+
+# Allow these specific strings anywhere — they are dev placeholders
+# and intentionally non-secret.
+[[allowlists]]
+description = "Dev placeholders in .env.example / docs"
+regexes = [
+  '''change-me-in-prod-use-azure-key-vault''',
+  '''dev-secret-do-not-use-in-prod''',
+  '''ci-secret''',
+  '''no-reply@halalistic\.example''',
+  '''halalistic:halalistic@localhost:5432/halalistic''',
+  '''pk_test_demo''',
+]
+paths = [
+  '''.env.example''',
+  '''docs/.*\.md''',
+  '''README.md''',
+  '''docker-compose.yml''',
+  '''.github/workflows/.*\.yml''',
+]
+
+# Allow Stripe's well-known test publishable key pattern only in the
+# readme/docs.
+[[allowlists]]
+description = "Stripe public test keys in docs only"
+regexes = ['''pk_test_[A-Za-z0-9]+''']
+paths = ['''docs/.*\.md''', '''README.md''']

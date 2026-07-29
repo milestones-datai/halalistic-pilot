@@ -1,0 +1,96 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "halalistic"
+version = "0.1.0"
+description = "Halalistic — halal restaurant discovery + deals marketplace (Houston pilot)"
+requires-python = ">=3.12"
+readme = "README.md"
+license = { text = "Proprietary" }
+authors = [
+    { name = "Halalistic" },
+]
+dependencies = [
+    "fastapi~=0.115.0",
+    "uvicorn[standard]~=0.32.0",
+    "pydantic~=2.9.0",
+    "pydantic-settings~=2.6.0",
+    "sqlalchemy~=2.0.36",
+    "alembic~=1.14.0",
+    "asyncpg~=0.30.0",
+    "argon2-cffi~=23.1.0",
+    "pyjwt~=2.10.0",
+    "slowapi~=0.1.9",
+    "email-validator~=2.2.0",
+    "googlemaps~=4.10.0",
+    "azure-storage-blob[aio]~=12.19.0",
+    "Pillow~=10.4.0",
+    "python-multipart~=0.0.9",
+    "stripe~=11.0",
+    "pywebpush~=2.0",
+    "azure-communication-email~=1.0",
+    "jinja2~=3.1.0",
+    "itsdangerous~=2.2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest~=8.3.0",
+    "pytest-asyncio~=0.24.0",
+    "httpx~=0.28.0",
+    "ruff~=0.7.0",
+    "coverage[toml]~=7.6.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+exclude = ["tests*", "scripts*", "infra*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
+
+# ---- ruff (Stage 12) ----
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+# CI gates on F (pyflakes errors) + E/W (pycodestyle).
+# The rest are advisory; the team adopts them gradually.
+select = ["F", "E", "W", "I", "B", "UP", "SIM"]
+ignore = [
+    "E501",   # line length — handled by formatter
+    "B008",   # FastAPI's `Annotated` style trips this; intentional
+    "B904",   # `raise from` — advisory
+    "UP038",  # isinstance tuple form is fine
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]   # asserts in tests are fine
+
+[tool.coverage.run]
+branch = true
+source = ["app"]
+omit = [
+    "app/main.py",          # the FastAPI app object — wired at import time
+    "app/db/session.py",    # engine factory
+    "app/admin/templates_env.py",
+    "app/web/templates_env.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+precision = 1
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]

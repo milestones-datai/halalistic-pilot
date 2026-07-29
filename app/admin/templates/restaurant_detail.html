@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}{{ restaurant.name }} — Admin{% endblock %}
+{% block content %}
+<h1>{{ restaurant.name }}</h1>
+<p class="muted">{{ restaurant.address_line }}, {{ restaurant.city }} · owner: {{ owner_email }}</p>
+
+<div class="grid-2">
+  <div class="card">
+    <h2>Status</h2>
+    <p>
+      <strong>Tier:</strong>
+      <span class="pill {% if restaurant.tier.value == 'free' %}gray{% else %}saffron{% endif %}">{{ restaurant.tier.value }}</span><br>
+      <strong>Halal status:</strong>
+      <span class="pill {% if restaurant.halal_status.value == 'verified' %}green{% elif restaurant.halal_status.value == 'pending' %}saffron{% else %}gray{% endif %}">{{ restaurant.halal_status.value }}</span><br>
+      <strong>Verification source:</strong> {{ restaurant.halal_verification_source.value if restaurant.halal_verification_source else '—' }}<br>
+      <strong>Active:</strong> {{ 'yes' if restaurant.is_active else 'no' }}
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>Tier override</h2>
+    <p class="muted">Bypasses Stripe. Use for comps, corrections, and pilot-launch concessions. Reason is required and logged.</p>
+    <form method="post" action="/admin/ui/restaurants/{{ restaurant.id }}/tier">
+      <label>New tier</label>
+      <select name="tier">
+        {% for t in tiers %}
+          <option value="{{ t.value }}" {% if t == restaurant.tier %}selected{% endif %}>{{ t.value }}</option>
+        {% endfor %}
+      </select>
+      <label style="margin-top:0.6rem">Reason (required, audited)</label>
+      <input type="text" name="reason" required style="width:100%">
+      <div class="row" style="margin-top:0.6rem">
+        <button class="btn primary" type="submit">Update tier</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<h2>Halal certificates</h2>
+{% if certs %}
+<table>
+  <thead>
+    <tr><th>Certifying body</th><th>Issue</th><th>Expires</th><th>Status</th><th>Document</th><th></th></tr>
+  </thead>
+  <tbody>
+  {% for c in certs %}
+    <tr>
+      <td>{{ c.certifying_body_name or c.custom_certifying_body or '—' }}</td>
+      <td>{{ c.issue_date }}</td>
+      <td>{{ c.expiry_date or '—' }}</td>
+      <td><span class="pill {% if c.status == 'approved' %}green{% elif c.status == 'pending' %}saffron{% elif c.status == 'rejected' %}red{% else %}gray{% endif %}">{{ c.status }}</span></td>
+      <td>{% if c.blob_url %}<a href="{{ c.blob_url }}" target="_blank" rel="noopener">view</a>{% else %}—{% endif %}</td>
+      <td>
+        {% if c.status == 'pending' %}
+        <form class="inline" method="post" action="/admin/ui/restaurants/{{ restaurant.id }}/certs/{{ c.id }}/review">
+          <input type="hidden" name="approve" value="true">
+          <button class="btn primary" type="submit">Approve</button>
+        </form>
+        <form class="inline" method="post" action="/admin/ui/restaurants/{{ restaurant.id }}/certs/{{ c.id }}/review">
+          <input type="hidden" name="approve" value="false">
+          <input type="text" name="review_notes" placeholder="reason" required>
+          <button class="btn danger" type="submit">Reject</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No certificates on file.</p>
+{% endif %}
+{% endblock %}

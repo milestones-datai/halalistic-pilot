@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Deals — Admin{% endblock %}
+{% block content %}
+<h1>Deal approval queue</h1>
+<p class="muted"><a class="btn saffron" href="/admin/ui/deals/new">+ Create hand-curated deal</a></p>
+
+{% if deals %}
+<table>
+  <thead>
+    <tr>
+      <th>Restaurant</th><th>Title</th><th>Type</th><th>Audience</th>
+      <th>Start</th><th>End</th><th>Submitted by</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for d in deals %}
+    <tr>
+      <td>{{ restaurant_names.get(d.restaurant_id, '?') }}</td>
+      <td>{{ d.title }}</td>
+      <td>{{ d.deal_type.value if d.deal_type else '' }}</td>
+      <td>{% if d.target_audience.value == 'push_only' %}<span class="pill saffron">push-only</span>{% else %}<span class="pill gray">public</span>{% endif %}</td>
+      <td>{{ d.start_date }}</td>
+      <td>{{ d.end_date }}</td>
+      <td>{{ submitter_emails.get(d.created_by, '—') }}</td>
+      <td>
+        <form class="inline" method="post" action="/admin/ui/deals/{{ d.id }}/approve">
+          <button class="btn primary" type="submit">Approve</button>
+        </form>
+        <form class="inline" method="post" action="/admin/ui/deals/{{ d.id }}/reject">
+          <input type="text" name="reason" placeholder="reason" required>
+          <button class="btn danger" type="submit">Reject</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No deals waiting for review.</p>
+{% endif %}
+{% endblock %}

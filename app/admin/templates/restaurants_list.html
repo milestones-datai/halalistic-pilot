@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Restaurants — Admin{% endblock %}
+{% block content %}
+<h1>Restaurants</h1>
+<p class="muted">
+  Onboarding queue + active roster.
+  {% if pending_only %}<a href="/admin/ui/restaurants">Show all</a>{% else %}
+    <a href="/admin/ui/restaurants?pending=1">Show pending certs only ({{ pending_certs }})</a>
+  {% endif %}
+</p>
+
+{% if restaurants %}
+<table>
+  <thead>
+    <tr>
+      <th>Name</th><th>City</th><th>Tier</th><th>Halal status</th>
+      <th>Owner</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for r in restaurants %}
+    <tr>
+      <td><a href="/admin/ui/restaurants/{{ r.id }}">{{ r.name }}</a></td>
+      <td>{{ r.city }}</td>
+      <td><span class="pill {% if r.tier.value == 'free' %}gray{% else %}saffron{% endif %}">{{ r.tier.value }}</span></td>
+      <td>
+        <span class="pill {% if r.halal_status.value == 'verified' %}green{% elif r.halal_status.value == 'pending' %}saffron{% else %}gray{% endif %}">
+          {{ r.halal_status.value }}
+        </span>
+      </td>
+      <td>{{ owner_emails.get(r.owner_id, '—') }}</td>
+      <td><a class="btn ghost" href="/admin/ui/restaurants/{{ r.id }}">Manage</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No restaurants match this filter.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Deals — Halalistic Owner{% endblock %}
+{% block content %}
+<div class="bg-halalistic-saffron-soft border border-halalistic-saffron rounded-lg p-3 mb-4 text-sm">
+  Owner portal. <a href="/owner/dashboard" class="text-halalistic-green underline">← back</a>
+</div>
+<h1 class="text-2xl font-bold text-halalistic-green mb-4">Deals</h1>
+
+{% if deals %}
+  <div class="card mb-4 overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left">
+          <th class="py-2 pr-2">Title</th>
+          <th class="py-2 pr-2">Type</th>
+          <th class="py-2 pr-2">Audience</th>
+          <th class="py-2 pr-2">Start</th>
+          <th class="py-2 pr-2">End</th>
+          <th class="py-2 pr-2">Status</th>
+          <th class="py-2 pr-2">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in deals %}
+          <tr class="border-t border-gray-200">
+            <td class="py-2 pr-2">{{ d.title }}</td>
+            <td class="py-2 pr-2">{{ d.deal_type.replace('_', ' ') }}</td>
+            <td class="py-2 pr-2">{{ d.target_audience }}</td>
+            <td class="py-2 pr-2">{{ d.start_date.isoformat() }}</td>
+            <td class="py-2 pr-2">{{ d.end_date.isoformat() }}</td>
+            <td class="py-2 pr-2">
+              <span class="pill pill-{{ 'green' if d.status == 'approved' else 'saffron' if d.status == 'pending_review' else 'red' if d.status == 'rejected' else 'gray' }}">{{ d.status }}</span>
+            </td>
+            <td class="py-2 pr-2">
+              {% if d.status == 'rejected' %}
+                <form class="inline" method="post" action="/owner/deals/{{ d.id }}/revise">
+                  <button class="btn btn-ghost text-xs" type="submit">Revise</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p class="text-gray-600 mb-4">No deals yet.</p>
+{% endif %}
+
+<form method="post" action="/owner/deals" class="card max-w-2xl space-y-2">
+  <h2 class="font-bold">Submit a new deal</h2>
+  <div>
+    <label class="field">Title</label>
+    <input class="input" type="text" name="title" required maxlength="200">
+  </div>
+  <div>
+    <label class="field">Description (optional)</label>
+    <textarea class="input" name="description" rows="2" maxlength="4000"></textarea>
+  </div>
+  <div class="grid grid-cols-2 gap-2">
+    <div>
+      <label class="field">Type</label>
+      <select class="input" name="deal_type" required>
+        {% for t in deal_types %}
+          <option value="{{ t.value }}">{{ t.value.replace('_', ' ') }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="field">Audience</label>
+      <select class="input" name="target_audience">
+        {% for a in audiences %}
+          <option value="{{ a.value }}">{{ a.value }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <div>
+    <label class="field">Discount value</label>
+    <input class="input" type="number" step="0.01" name="discount_value" value="0">
+  </div>
+  <div class="grid grid-cols-2 gap-2">
+    <div>
+      <label class="field">Start date</label>
+      <input class="input" type="date" name="start_date" required>
+    </div>
+    <div>
+      <label class="field">End date</label>
+      <input class="input" type="date" name="end_date" required>
+    </div>
+  </div>
+  <button class="btn btn-primary" type="submit">Submit for review</button>
+</form>
+{% endblock %}

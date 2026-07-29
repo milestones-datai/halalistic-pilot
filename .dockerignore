@@ -1,0 +1,35 @@
+# What NOT to ship in the Docker image.
+# .git        — never, in any case
+# .venv       — rebuilt inside the image
+# __pycache__ — rebuilt at runtime
+# tests/      — not needed in the image; CI runs them
+# docs/       — not needed; lives in repo
+# secrets     — env vars only
+# .env        — local dev only; never commit
+# local zips  — Stage 9-11 deliverable artifacts
+
+.git
+.gitignore
+.github
+.venv
+__pycache__
+**/__pycache__
+**/*.pyc
+**/*.pyo
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage
+htmlcov
+tests
+docs
+halalistic-stage*.zip
+vapid_keys.json
+vapid_keys.json.tmp
+.env
+.env.local
+.env.*.local
+*.log
+README.md
+*.md
+!app/**/*.md

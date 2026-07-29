@@ -1,0 +1,168 @@
+# GitHub Actions — CD for merge to main.
+#
+# Flow (per Stage 12 + BRD §4 best-effort-uptime pilot):
+#   1. On merge to main → build the Docker image (multi-arch: amd64+arm64)
+#   2. Push to GitHub Container Registry (ghcr.io), tagged with the
+#      short SHA + "latest" (latest is always the most recent main).
+#   3. Auto-deploy to the **staging** Azure Container Apps environment.
+#   4. Production deploy requires a manual approval via the
+#      `production` GitHub Environment protection rule. The team gets
+#      notified, eyeballs staging, then clicks "Approve" — that triggers
+#      a workflow_run that updates the prod ACA env to the same image.
+#
+# Why a manual gate? BRD §4 says best-effort-uptime pilot. A human
+# confirms Houston isn't on fire before we touch prod traffic. The
+# approval window is 24h; the prod deploy job expires if not approved
+# in time, and the staging deploy is unaffected.
+
+name: cd-deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:        # allow manual re-deploy from Actions tab
+    inputs:
+      target:
+        description: "deploy target"
+        required: true
+        type: choice
+        options: [staging, production]
+        default: staging
+
+permissions:
+  contents: read
+  id-token: write           # OIDC for Azure login (no static secrets in GH)
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    name: Build & push image
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      digest: ${{ steps.build.outputs.digest }}
+      tag: ${{ steps.meta.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up QEMU (multi-arch)
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=sha-
+            type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
+      - name: Build & push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: true
+
+  deploy-staging:
+    name: Deploy → staging
+    needs: build
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.target == 'staging')
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy to ACA staging
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          acaName: ${{ secrets.ACA_STAGING_NAME }}
+          resourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          imageToDeploy: ${{ needs.build.outputs.image }}@${{ needs.build.outputs.digest }}
+          containerAppEnvironment: ${{ secrets.ACA_STAGING_ENV }}
+          # Secrets / env-var references are bound at provisioning time
+          # via `az containerapp update --secret-refs`; this action
+          # only swaps the image and triggers a rolling restart.
+          activateWorkflow: false
+      - name: Smoke test
+        run: |
+          # 30-second health probe against the staging URL. If staging
+          # 500s, the whole pipeline fails — main is protected by
+          # branch rules, so this also blocks the next merge.
+          STAGING_URL="https://${{ secrets.ACA_STAGING_FQDN }}"
+          for i in $(seq 1 6); do
+            sleep 5
+            STATUS=$(curl -s -o /tmp/h.json -w "%{http_code}" "$STAGING_URL/health" || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "staging healthy"
+              exit 0
+            fi
+            echo "attempt $i: got $STATUS"
+          done
+          echo "staging failed health check after 30s"
+          cat /tmp/h.json
+          exit 1
+
+  deploy-production:
+    name: Deploy → production (manual)
+    needs: [build, deploy-staging]
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'production'
+    runs-on: ubuntu-latest
+    # This is the human-in-the-loop gate. Branch protection + the
+    # `production` Environment rule require an explicit "Approve"
+    # click from a maintainer before this job runs. The required
+    # reviewers list is configured in repo Settings → Environments.
+    environment:
+      name: production
+      url: https://halalistic.app
+    steps:
+      - uses: actions/checkout@v4
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy to ACA production
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          acaName: ${{ secrets.ACA_PROD_NAME }}
+          resourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          imageToDeploy: ${{ needs.build.outputs.image }}@${{ needs.build.outputs.digest }}
+          containerAppEnvironment: ${{ secrets.ACA_PROD_ENV }}
+      - name: Smoke test
+        run: |
+          PROD_URL="https://halalistic.app"
+          for i in $(seq 1 6); do
+            sleep 5
+            STATUS=$(curl -s -o /tmp/h.json -w "%{http_code}" "$PROD_URL/health" || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "production healthy"
+              exit 0
+            fi
+            echo "attempt $i: got $STATUS"
+          done
+          echo "production failed health check after 30s"
+          cat /tmp/h.json
+          exit 1

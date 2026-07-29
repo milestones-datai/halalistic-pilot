@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Reviews — Admin{% endblock %}
+{% block content %}
+<h1>Review moderation queue</h1>
+<p class="muted">
+  Filter:
+  <a href="/admin/ui/reviews" class="{% if not filter_flagged %}btn saffron{% else %}btn ghost{% endif %}" style="font-size:0.85rem">All pending ({{ counts.pending }})</a>
+  <a href="/admin/ui/reviews?flagged=1" class="{% if filter_flagged %}btn saffron{% else %}btn ghost{% endif %}" style="font-size:0.85rem">Flagged only ({{ counts.flagged }})</a>
+</p>
+
+{% if reviews %}
+<table>
+  <thead>
+    <tr>
+      <th>Restaurant</th><th>Rating</th><th>Body</th><th>Reviewer</th>
+      <th>Flagged</th><th>Created</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for r in reviews %}
+    <tr>
+      <td><a href="/admin/ui/restaurants/{{ r.restaurant_id }}">{{ restaurant_names.get(r.restaurant_id, '?') }}</a></td>
+      <td>{{ r.rating }}/5</td>
+      <td><div style="max-width:480px">{{ r.body[:200] }}{% if r.body|length > 200 %}…{% endif %}</div>
+        {% if r.flagged %}<div class="muted" style="font-size:0.8rem">flags: {{ r.flag_reasons or 'unspecified' }}</div>{% endif %}
+      </td>
+      <td>{{ r.reviewer_name }}</td>
+      <td>{% if r.flagged %}<span class="pill red">flagged</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td>{{ r.created_at.strftime('%Y-%m-%d %H:%M') if r.created_at else '' }}</td>
+      <td>
+        <form class="inline" method="post" action="/admin/ui/reviews/{{ r.id }}/moderate">
+          <input type="hidden" name="approve" value="true">
+          <button class="btn primary" type="submit">Approve</button>
+        </form>
+        <form class="inline" method="post" action="/admin/ui/reviews/{{ r.id }}/moderate">
+          <input type="hidden" name="approve" value="false">
+          <input type="text" name="reason" placeholder="reason" required>
+          <button class="btn danger" type="submit">Reject</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No reviews match this filter.</p>
+{% endif %}
+{% endblock %}

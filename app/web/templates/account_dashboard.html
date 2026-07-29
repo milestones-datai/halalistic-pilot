@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}My account — Halalistic{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold text-halalistic-green mb-4">My account</h1>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <section class="card">
+    <h2 class="text-lg font-bold text-halalistic-green">Points</h2>
+    <p class="text-3xl font-bold text-halalistic-saffron mt-1">{{ points }}</p>
+    <p class="text-sm text-gray-600">Earned from reviews, checkins, and referrals.</p>
+    <details class="mt-3">
+      <summary class="cursor-pointer text-halalistic-green">Redeem for a gift card</summary>
+      <form method="post" action="/account/redeem" class="mt-2 space-y-2">
+        <div>
+          <label class="field">Points to spend (min {{ points_min }})</label>
+          <input class="input" type="number" name="points_to_spend" min="{{ points_min }}"
+                 step="100" value="{{ points_min }}" required>
+        </div>
+        <div>
+          <label class="field">Email for the gift card code</label>
+          <input class="input" type="email" name="delivery_email" required>
+        </div>
+        <button class="btn btn-primary" type="submit">Request redemption</button>
+      </form>
+    </details>
+  </section>
+
+  <section class="card">
+    <h2 class="text-lg font-bold text-halalistic-green">Refer &amp; earn</h2>
+    <p class="text-sm text-gray-700 mt-1">
+      Share your link. When a friend signs up and verifies their email,
+      you both earn <strong>500 points</strong>.
+    </p>
+    <p class="mt-2"><span class="pill pill-saffron">Your code: {{ referral_code }}</span></p>
+    <input class="input mt-2" readonly value="{{ referral_link }}"
+           onclick="this.select()">
+  </section>
+
+  <section class="card">
+    <h2 class="text-lg font-bold text-halalistic-green">Subscription</h2>
+    {% if subscription %}
+      <p>Status: <span class="pill pill-green">{{ subscription.status }}</span></p>
+      <p class="text-sm text-gray-700">Tier: {{ subscription.tier.value if subscription.tier else '—' }}</p>
+    {% else %}
+      <p class="text-gray-700">You don't have a deals subscription yet.</p>
+      <form method="post" action="/account/subscribe" class="mt-2">
+        <button class="btn btn-saffron" type="submit">Subscribe to deals</button>
+      </form>
+      <p class="text-xs text-gray-500 mt-2">Opens Stripe Checkout in a new tab.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2 class="text-lg font-bold text-halalistic-green">Gift card redemptions</h2>
+    {% if redemptions %}
+      <ul class="mt-2 space-y-1 text-sm">
+        {% for r in redemptions %}
+          <li class="flex justify-between">
+            <span>{{ r.points_spent }} pts · {{ r.delivery_email }}</span>
+            <span class="pill pill-{{ 'green' if r.status == 'fulfilled' else 'saffron' if r.status == 'pending_fulfillment' else 'gray' }}">
+              {{ r.status }}
+            </span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-gray-600">No redemptions yet.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

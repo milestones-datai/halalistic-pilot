@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Sign in — Halalistic{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto">
+  <h1 class="text-3xl font-bold text-halalistic-green mb-2">Sign in</h1>
+  <p class="text-gray-600 mb-6">Welcome back. Find halal restaurants + deals in Houston.</p>
+  {% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+  <form method="post" action="/web/login" class="card space-y-3">
+    <div>
+      <label class="field" for="email">Email</label>
+      <input class="input" type="email" id="email" name="email" required autofocus autocomplete="email">
+    </div>
+    <div>
+      <label class="field" for="password">Password</label>
+      <input class="input" type="password" id="password" name="password" required autocomplete="current-password">
+    </div>
+    <button class="btn btn-primary w-full" type="submit">Sign in</button>
+    <p class="text-sm text-center text-gray-600">
+      New here? <a href="/web/signup" class="text-halalistic-green underline">Create an account</a>
+    </p>
+    <p class="text-sm text-center text-gray-600">
+      <a href="/web/password-reset" class="text-halalistic-green underline">Forgot password?</a>
+    </p>
+  </form>
+  {% if user and (user.role.value == 'platform_admin' or user.role.value == 'deal_curator') %}
+    <p class="text-sm text-center text-gray-600 mt-3">
+      Staff? <a href="/admin/ui/dashboard" class="text-halalistic-saffron underline">Go to admin console</a>
+    </p>
+  {% endif %}
+</div>
+{% endblock %}

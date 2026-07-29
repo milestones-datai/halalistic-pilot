@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Deals — Halalistic{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold text-halalistic-green mb-4">Active halal deals in Houston</h1>
+<form method="get" class="card mb-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+  <div>
+    <label class="field">City</label>
+    <input class="input" type="text" name="city" value="{{ city }}" placeholder="Houston">
+  </div>
+  <div>
+    <label class="field">Type</label>
+    <select class="input" name="deal_type">
+      <option value="">Any</option>
+      <option value="percentage_off" {% if deal_type == 'percentage_off' %}selected{% endif %}>Percentage off</option>
+      <option value="fixed_amount" {% if deal_type == 'fixed_amount' %}selected{% endif %}>Fixed amount</option>
+      <option value="bogo" {% if deal_type == 'bogo' %}selected{% endif %}>BOGO</option>
+      <option value="free_item" {% if deal_type == 'free_item' %}selected{% endif %}>Free item</option>
+      <option value="bundle" {% if deal_type == 'bundle' %}selected{% endif %}>Bundle</option>
+    </select>
+  </div>
+  <div class="sm:col-span-2">
+    <button class="btn btn-primary" type="submit">Apply</button>
+  </div>
+</form>
+
+{% if deals %}
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for d in deals %}
+      <article class="card flex flex-col">
+        <span class="pill pill-saffron text-xs">{{ d.deal_type.replace('_', ' ') }}</span>
+        <h3 class="font-bold text-lg mt-1">{{ d.title }}</h3>
+        <p class="text-sm text-gray-600 mt-1">
+          <a href="/restaurants/{{ d.restaurant_id }}" class="text-halalistic-green underline">
+            {{ d.restaurant_name }}
+          </a> · {{ d.restaurant_city }}
+        </p>
+        {% if d.description %}<p class="text-sm text-gray-800 mt-1">{{ d.description[:100] }}{% if d.description|length > 100 %}…{% endif %}</p>{% endif %}
+        <p class="text-xs text-gray-500 mt-2">Valid through {{ d.end_date.isoformat() }}</p>
+      </article>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card text-center text-gray-600">
+    <p>No active deals match these filters.</p>
+  </div>
+{% endif %}
+{% endblock %}

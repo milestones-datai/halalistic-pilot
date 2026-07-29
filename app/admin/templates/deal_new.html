@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}New curated deal — Admin{% endblock %}
+{% block content %}
+<h1>Create hand-curated deal</h1>
+<p class="muted">
+  Curated deals skip the <code>pending_review</code> state and go straight to
+  <code>approved</code>. Use for founder / partner deals (BRD §3.5).
+</p>
+{% if error %}<div class="alert error">{{ error }}</div>{% endif %}
+<form method="post" action="/admin/ui/deals/new" class="card" style="max-width:640px">
+  <label>Restaurant</label>
+  <select name="restaurant_id" required style="width:100%">
+    <option value="">— pick a restaurant —</option>
+    {% for r in restaurants %}
+      <option value="{{ r.id }}">{{ r.name }} ({{ r.city }})</option>
+    {% endfor %}
+  </select>
+  <label style="margin-top:0.6rem">Title</label>
+  <input type="text" name="title" required style="width:100%">
+  <label style="margin-top:0.6rem">Description</label>
+  <textarea name="description" style="width:100%"></textarea>
+  <div class="grid-2" style="margin-top:0.6rem">
+    <div>
+      <label>Type</label>
+      <select name="deal_type">
+        {% for t in deal_types %}<option value="{{ t.value }}">{{ t.value }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label>Audience</label>
+      <select name="target_audience">
+        <option value="public">public</option>
+        <option value="push_only">push_only (Premium tier only)</option>
+      </select>
+    </div>
+  </div>
+  <div class="row" style="margin-top:0.6rem">
+    <div>
+      <label>Discount value (number)</label>
+      <input type="number" step="0.01" name="discount_value" value="0">
+    </div>
+  </div>
+  <div class="grid-2" style="margin-top:0.6rem">
+    <div>
+      <label>Start date</label>
+      <input type="date" name="start_date" required>
+    </div>
+    <div>
+      <label>End date</label>
+      <input type="date" name="end_date" required>
+    </div>
+  </div>
+  <div class="row" style="margin-top:0.8rem">
+    <button class="btn primary" type="submit">Create + approve</button>
+  </div>
+</form>
+{% endblock %}

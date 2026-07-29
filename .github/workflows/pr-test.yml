@@ -1,0 +1,90 @@
+# GitHub Actions — runs on every PR + every push to main.
+#
+# Gates (all must pass before merge):
+#   1. ruff lint (cheap, fast feedback)
+#   2. pytest (213 tests, ~2 min on the runner)
+#   3. secret scan (gitleaks) — block on any leak, even in history
+#
+# PRs that fail ANY of these are blocked at the GitHub branch protection
+# level (configured in repo settings → Branch protection → main).
+name: pr-test
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]   # post-merge sanity check too
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Install ruff
+        run: pip install --quiet "ruff~=0.7.0"
+      - name: Run ruff
+        # Block on F (pyflakes-flake8 errors) + E/W (pycodestyle).
+        # B (bugbear) and I (isort) are warnings for now.
+        run: |
+          ruff check app/ --select "F,E,W" --ignore "E501" --exit-non-zero-on-fix
+          ruff format --check app/
+
+  test:
+    name: Test (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: halalistic
+          POSTGRES_PASSWORD: halalistic
+          POSTGRES_DB: halalistic
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U halalistic"
+          --health-interval 5s --health-timeout 5s --health-retries 5
+    env:
+      ENV: test
+      DATABASE_URL: postgresql+asyncpg://halalistic:halalistic@localhost:5432/halalistic
+      SECRET_KEY: ci-secret
+    strategy:
+      fail-fast: false
+      matrix: { python-version: ["3.12"] }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: ${{ matrix.python-version }} }
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Migrate
+        run: alembic upgrade head
+      - name: Run tests
+        run: pytest -q --tb=short --color=yes
+      - name: Coverage (informational)
+        if: matrix.python-version == '3.12'
+        run: |
+          pip install --quiet "coverage[toml]~=7.6.0"
+          coverage run -m pytest -q
+          coverage report --skip-empty --show-missing
+
+  secret-scan:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }   # scan full history, not just HEAD
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Block the PR if any leak is found.
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "true"
+          GITLEAKS_ENABLE_SUMMARY: "true"

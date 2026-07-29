@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Restaurants — Halalistic{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold text-halalistic-green mb-4">Halal restaurants in Houston</h1>
+<form method="get" class="card mb-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+  <div class="sm:col-span-1">
+    <label class="field">Search</label>
+    <input class="input" type="search" name="q" value="{{ q }}" placeholder="name, cuisine, area…">
+  </div>
+  <div>
+    <label class="field">Halal status</label>
+    <select class="input" name="halal_status">
+      <option value="">Any</option>
+      <option value="verified" {% if halal_status == 'verified' %}selected{% endif %}>Verified</option>
+      <option value="self_reported" {% if halal_status == 'self_reported' %}selected{% endif %}>Self-reported</option>
+      <option value="pending" {% if halal_status == 'pending' %}selected{% endif %}>Pending review</option>
+    </select>
+  </div>
+  <div>
+    <label class="field">Sort by</label>
+    <select class="input" name="sort">
+      <option value="name" {% if sort == 'name' %}selected{% endif %}>Name</option>
+      <option value="newest" {% if sort == 'newest' %}selected{% endif %}>Newest</option>
+      <option value="tier" {% if sort == 'tier' %}selected{% endif %}>Tier</option>
+    </select>
+  </div>
+  <div class="sm:col-span-3">
+    <button class="btn btn-primary" type="submit">Apply filters</button>
+  </div>
+</form>
+
+{% if restaurants %}
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for r in restaurants %}
+      <a href="/restaurants/{{ r.id }}" class="card hover:shadow-md transition flex flex-col">
+        <h3 class="font-bold text-lg text-halalistic-green">{{ r.name }}</h3>
+        <p class="text-sm text-gray-600">{{ r.address_line }}, {{ r.city }}</p>
+        <div class="mt-2 flex flex-wrap gap-1">
+          {% if r.halal_status.value == 'verified' %}
+            <span class="pill pill-green text-xs">✓ Verified halal</span>
+          {% elif r.halal_status.value == 'pending' %}
+            <span class="pill pill-saffron text-xs">Pending</span>
+          {% else %}
+            <span class="pill pill-gray text-xs">Self-reported</span>
+          {% endif %}
+          <span class="pill pill-gray text-xs">{{ r.tier.value }}</span>
+        </div>
+        {% if r.description %}
+          <p class="text-sm text-gray-700 mt-2 line-clamp-2">{{ r.description[:120] }}{% if r.description|length > 120 %}…{% endif %}</p>
+        {% endif %}
+      </a>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card text-center text-gray-600">
+    <p>No restaurants match these filters yet. Try clearing them.</p>
+  </div>
+{% endif %}
+{% endblock %}

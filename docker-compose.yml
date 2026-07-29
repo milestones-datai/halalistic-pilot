@@ -1,0 +1,61 @@
+# Local dev compose — mirrors the Azure Container Apps + Postgres
+# topology. NOT for production (Azure Container Apps uses its own
+# managed Postgres via Flexible Server or external).
+#
+# Usage:
+#   docker compose up --build       # start app + postgres
+#   docker compose exec app alembic upgrade head
+#   docker compose exec app .venv/Scripts/python.exe -m pytest -q
+#   docker compose down -v          # teardown + drop volumes
+#
+# Healthcheck at http://localhost:8000/health
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: halalistic
+      POSTGRES_PASSWORD: halalistic
+      POSTGRES_DB: halalistic
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U halalistic -d halalistic"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ENV: development
+      LOG_LEVEL: INFO
+      DATABASE_URL: postgresql+asyncpg://halalistic:halalistic@db:5432/halalistic
+      SECRET_KEY: dev-secret-do-not-use-in-prod
+      ACCESS_TOKEN_EXPIRE_MINUTES: "60"
+      # All cloud secrets left empty in dev; the AzureBlob / Stripe /
+      # Google Maps / email backends gracefully degrade when their
+      # env vars are missing.
+      AZURE_BLOB_CONNECTION_STRING: ""
+      STRIPE_SECRET_KEY: ""
+      STRIPE_WEBHOOK_SECRET: ""
+      GOOGLE_MAPS_API_KEY: ""
+      EMAIL_PROVIDER_API_KEY: ""
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+volumes:
+  pgdata:

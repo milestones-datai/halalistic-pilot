@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Users — Admin{% endblock %}
+{% block content %}
+<h1>Users</h1>
+<p class="muted">Search by email, display name, or user ID. Deactivation is reversible.</p>
+
+<form method="get" action="/admin/ui/users" class="card" style="margin-bottom:1rem">
+  <div class="row">
+    <input type="text" name="q" value="{{ q or '' }}" placeholder="email or name…" style="flex:1">
+    <button class="btn primary" type="submit">Search</button>
+    {% if q %}<a class="btn ghost" href="/admin/ui/users">Clear</a>{% endif %}
+  </div>
+</form>
+
+{% if users %}
+<table>
+  <thead>
+    <tr>
+      <th>Email</th><th>Display name</th><th>Role</th><th>Status</th>
+      <th>Created</th><th>Email verified</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for u in users %}
+    <tr>
+      <td>{{ u.email }}</td>
+      <td>{{ u.display_name }}</td>
+      <td><span class="pill {% if u.role.value == 'platform_admin' %}green{% elif u.role.value == 'deal_curator' %}saffron{% else %}gray{% endif %}">{{ u.role.value }}</span></td>
+      <td>{% if u.is_active %}<span class="pill green">active</span>{% else %}<span class="pill red">deactivated</span>{% endif %}</td>
+      <td>{{ u.created_at.strftime('%Y-%m-%d') if u.created_at else '' }}</td>
+      <td>{% if u.email_verified %}yes{% else %}<span class="muted">no</span>{% endif %}</td>
+      <td>
+        {% if u.role.value not in ('platform_admin',) %}
+        <form class="inline" method="post" action="/admin/ui/users/{{ u.id }}/active">
+          <input type="hidden" name="is_active" value="{{ 'false' if u.is_active else 'true' }}">
+          <button class="btn {% if u.is_active %}danger{% else %}primary{% endif %}" type="submit">
+            {{ 'Deactivate' if u.is_active else 'Reactivate' }}
+          </button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No users match this search.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}{{ restaurant.name }} — Halalistic{% endblock %}
+{% block content %}
+<article class="card mb-4">
+  <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-2">
+    <div>
+      <h1 class="text-2xl md:text-3xl font-bold text-halalistic-green">{{ restaurant.name }}</h1>
+      <p class="text-gray-700">{{ restaurant.address_line }}, {{ restaurant.city }} {{ restaurant.state }} {{ restaurant.postal_code }}</p>
+    </div>
+    <div class="flex flex-wrap gap-1">
+      {% if restaurant.halal_status.value == 'verified' %}
+        <span class="pill pill-green">✓ Verified halal</span>
+      {% elif restaurant.halal_status.value == 'pending' %}
+        <span class="pill pill-saffron">Pending review</span>
+      {% else %}
+        <span class="pill pill-gray">Self-reported</span>
+      {% endif %}
+      <span class="pill pill-saffron">{{ restaurant.tier.value }}</span>
+    </div>
+  </div>
+  {% if restaurant.description %}
+    <p class="text-gray-800 mt-2">{{ restaurant.description }}</p>
+  {% endif %}
+  <p class="text-sm text-gray-600 mt-2">
+    Owner: <span class="text-gray-800">{{ owner_email }}</span>
+  </p>
+</article>
+
+{% if deals %}
+  <section class="mb-6">
+    <h2 class="text-xl font-bold text-halalistic-green mb-2">Active deals</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {% for d in deals %}
+        <div class="card">
+            <span class="pill pill-saffron text-xs">{{ d.deal_type.replace('_', ' ') }}</span>
+          <h3 class="font-bold mt-2">{{ d.title }}</h3>
+          {% if d.description %}<p class="text-sm text-gray-700 mt-1">{{ d.description[:120] }}{% if d.description|length > 120 %}…{% endif %}</p>{% endif %}
+          <div class="flex items-center justify-between mt-2">
+            <span class="text-xs text-gray-500">Ends {{ d.end_date.isoformat() }}</span>
+            <button class="btn btn-ghost text-xs"
+                    onclick="navigator.clipboard.writeText('{{ request.url_for('share_deal_page', deal_id=d.id) if false else '' }}{{ request.base_url }}share/deals/{{ d.id }}'); this.textContent='Copied!';">
+              Copy share link
+            </button>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endif %}
+
+{% if menu %}
+  <section class="mb-6">
+    <h2 class="text-xl font-bold text-halalistic-green mb-2">Menu</h2>
+    {% for c in menu %}
+      <details class="card mb-2" open>
+        <summary class="font-bold cursor-pointer">{{ c.name }}</summary>
+        {% if c.items %}
+          <ul class="mt-2 space-y-1 text-sm">
+            {% for it in c.items %}
+              <li class="flex justify-between border-b border-gray-100 py-1">
+                <span>{{ it.name }}</span>
+                <span class="text-gray-600">${{ '%.2f' % (it.price_cents / 100) if it.price_cents else '—' }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </details>
+    {% endfor %}
+  </section>
+{% endif %}
+
+<section class="mb-6">
+  <h2 class="text-xl font-bold text-halalistic-green mb-2">Reviews</h2>
+  {% if user and user.role.value in ('diner', 'platform_admin') %}
+    <form method="post" action="/restaurants/{{ restaurant.id }}/review"
+          enctype="multipart/form-data" class="card mb-3">
+      <h3 class="font-bold mb-2">Write a review</h3>
+      <div class="star-rating mb-2" aria-label="Rating">
+        {% for i in range(5, 0, -1) %}
+          <input type="radio" id="star{{ i }}" name="rating" value="{{ i }}" {% if i == 5 %}checked{% endif %}>
+          <label for="star{{ i }}" title="{{ i }} stars">★</label>
+        {% endfor %}
+      </div>
+      <label class="field">Your review</label>
+      <textarea class="input" name="body" rows="3" required minlength="1" maxlength="4000"
+                placeholder="What did you love? Anything we should know?"></textarea>
+      {% if tags %}
+        <label class="field mt-2">Tags (max 3)</label>
+        <div class="flex flex-wrap gap-2">
+          {% for t in tags %}
+            <label class="text-sm">
+              <input type="checkbox" name="tag_ids" value="{{ t.id }}" class="mr-1">
+              {{ t.name }}
+            </label>
+          {% endfor %}
+        </div>
+      {% endif %}
+      <label class="field mt-2">Instagram embed URL (optional)</label>
+      <input class="input" type="url" name="instagram_embed_url" placeholder="https://www.instagram.com/p/…">
+      <label class="field mt-2">Photos (up to 3)</label>
+      <input class="input" type="file" name="file0" accept="image/*">
+      <input class="input mt-1" type="file" name="file1" accept="image/*">
+      <input class="input mt-1" type="file" name="file2" accept="image/*">
+      <button class="btn btn-primary mt-3" type="submit">Submit for review</button>
+      <p class="text-xs text-gray-500 mt-2">Reviews go through admin moderation before they're public.</p>
+    </form>
+  {% elif not user %}
+    <div class="card mb-3 text-sm">
+      <a href="/web/login" class="text-halalistic-green underline">Sign in</a> to write a review.
+    </div>
+  {% endif %}
+
+  {% if reviews %}
+    <div class="space-y-3">
+      {% for r in reviews %}
+        <div class="card">
+          <div class="flex items-center justify-between">
+            <span class="font-semibold text-halalistic-green">{{ reviewer_names.get(r.reviewer_id, 'Diner') }}</span>
+            <span class="pill pill-saffron text-xs">{{ r.rating }}/5</span>
+          </div>
+          <p class="text-gray-800 mt-1">{{ r.body }}</p>
+          {% if r.instagram_embed_url %}
+            <div class="ig-embed mt-2">
+              <iframe src="{{ r.instagram_embed_url.rstrip('/') }}/embed/" width="100%" height="480"
+                      frameborder="0" scrolling="no" allowtransparency="true"></iframe>
+            </div>
+          {% endif %}
+          {% if r.photos %}
+            <div class="flex gap-2 mt-2 flex-wrap">
+              {% for p in r.photos %}
+                <img src="{{ p.blob_url }}" alt="" class="w-20 h-20 object-cover rounded">
+              {% endfor %}
+            </div>
+          {% endif %}
+          <p class="text-xs text-gray-500 mt-2">{{ r.created_at.strftime('%Y-%m-%d') if r.created_at else '' }}</p>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="text-gray-600">No reviews yet — be the first.</p>
+  {% endif %}
+</section>
+
+{% if cert %}
+  <section class="card">
+    <h2 class="text-lg font-bold text-halalistic-green mb-1">Halal certification</h2>
+    <p class="text-sm text-gray-700">
+      Certifying body: <strong>{{ cert.certifying_body.name if cert.certifying_body else (cert.custom_certifying_body or '—') }}</strong><br>
+      Issued: {{ cert.issue_date.isoformat() }}<br>
+      {% if cert.expiry_date %}Expires: {{ cert.expiry_date.isoformat() }}{% endif %}
+    </p>
+  </section>
+{% endif %}
+{% endblock %}

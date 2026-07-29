@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Halal certificates — Halalistic Owner{% endblock %}
+{% block content %}
+<div class="bg-halalistic-saffron-soft border border-halalistic-saffron rounded-lg p-3 mb-4 text-sm">
+  Owner portal. <a href="/owner/dashboard" class="text-halalistic-green underline">← back</a>
+</div>
+<h1 class="text-2xl font-bold text-halalistic-green mb-4">Halal certificates</h1>
+
+{% if certs %}
+  <div class="card mb-4">
+    <h2 class="font-bold mb-2">On file</h2>
+    <ul class="text-sm divide-y divide-gray-200">
+      {% for c in certs %}
+        <li class="py-2 flex justify-between">
+          <span>
+            <strong>{{ c.certifying_body.name if c.certifying_body else c.custom_certifying_body }}</strong> ·
+            issued {{ c.issue_date.isoformat() }}
+            {% if c.expiry_date %} · expires {{ c.expiry_date.isoformat() }}{% endif %}
+          </span>
+          <span class="pill pill-{{ 'green' if c.status == 'approved' else 'saffron' if c.status == 'pending' else 'red' if c.status == 'rejected' else 'gray' }}">
+            {{ c.status }}
+          </span>
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endif %}
+
+<form method="post" action="/owner/certificates" enctype="multipart/form-data" class="card max-w-md space-y-2">
+  <h2 class="font-bold">Upload a new certificate</h2>
+  <div>
+    <label class="field">Certifying body</label>
+    <select class="input" name="certifying_body_id" required>
+      {% for b in bodies %}
+        <option value="{{ b.id }}">{{ b.name }} ({{ b.country or '—' }})</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="grid grid-cols-2 gap-2">
+    <div>
+      <label class="field">Issue date</label>
+      <input class="input" type="date" name="issue_date" required>
+    </div>
+    <div>
+      <label class="field">Expiry (optional)</label>
+      <input class="input" type="date" name="expiry_date">
+    </div>
+  </div>
+  <div>
+    <label class="field">Certificate document (PDF or image)</label>
+    <input class="input" type="file" name="document" accept="application/pdf,image/*" required>
+  </div>
+  <button class="btn btn-primary" type="submit">Submit for review</button>
+  <p class="text-xs text-gray-500">Admin will verify within 1-2 business days.</p>
+</form>
+{% endblock %}

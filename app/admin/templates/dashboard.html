@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Halalistic Admin{% endblock %}
+{% block content %}
+<h1>Pilot dashboard</h1>
+<p class="muted">BRD §9.3 pilot KPIs. Point-in-time counts.</p>
+
+<h2>Restaurants</h2>
+<div class="grid-3">
+  <div class="card">
+    <div class="kpi-label">Onboarded (total)</div>
+    <div class="kpi">{{ kpis.restaurants.total }}</div>
+  </div>
+  <div class="card">
+    <div class="kpi-label">Active</div>
+    <div class="kpi">{{ kpis.restaurants.active }}</div>
+  </div>
+  <div class="card">
+    <div class="kpi-label">Halal-verified</div>
+    <div class="kpi">{{ kpis.restaurants.halal_verified }}</div>
+  </div>
+</div>
+
+<h2>Users</h2>
+<div class="grid-3">
+  <div class="card">
+    <div class="kpi-label">Total</div>
+    <div class="kpi">{{ kpis.users.total }}</div>
+  </div>
+  <div class="card">
+    <div class="kpi-label">Active</div>
+    <div class="kpi">{{ kpis.users.active }}</div>
+  </div>
+  <div class="card">
+    <div class="kpi-label">Subscribed</div>
+    <div class="kpi">{{ kpis.users.subscribed }}</div>
+  </div>
+</div>
+
+<h2>Pending queues</h2>
+<div class="grid-3">
+  <div class="card">
+    <div class="kpi-label">Pending halal certs</div>
+    <div class="kpi"><a href="/admin/ui/restaurants">{{ queue.pending_certs }}</a></div>
+  </div>
+  <div class="card">
+    <div class="kpi-label">Pending reviews
+      {% if queue.flagged_reviews %}<span class="pill red">{{ queue.flagged_reviews }} flagged</span>{% endif %}
+    </div>
+    <div class="kpi"><a href="/admin/ui/reviews">{{ queue.pending_reviews }}</a></div>
+  </div>
+  <div class="card">
+    <div class="kpi-label">Pending deals</div>
+    <div class="kpi"><a href="/admin/ui/deals">{{ queue.pending_deals }}</a></div>
+  </div>
+</div>
+{% endblock %}
