@@ -416,10 +416,13 @@ async def owner_tier_subscribe(
     if r is None:
         raise HTTPException(status_code=404, detail="no restaurant")
     try:
-        url = await billing_service.create_restaurant_checkout(
-            db, restaurant=r, target_tier=target_tier,
-            success_url=f"{settings.app_public_url}/owner/dashboard?subscribed=1",
-            cancel_url=f"{settings.app_public_url}/owner/dashboard?canceled=1",
+        target_enum = RestaurantTier(target_tier)
+    except ValueError:
+        _set_flash(request, "error", f"Invalid tier: {target_tier}")
+        return RedirectResponse(url="/owner/dashboard", status_code=303)
+    try:
+        url = await billing_service.create_restaurant_checkout_session(
+            db, restaurant=r, target_tier=target_enum, actor=user,
         )
     except HTTPException as exc:
         _set_flash(request, "error", f"Could not start checkout: {exc.detail}")
